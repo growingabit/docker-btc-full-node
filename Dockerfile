@@ -1,9 +1,5 @@
 FROM ubuntu:16.04
 
-# Specify RPC auth
-ARG RPC_USER
-ARG RPC_PASSWORD
-
 # Initial OS setup & refresh
 # https://launchpad.net/~bitcoin/+archive/ubuntu/bitcoin
 RUN echo "deb http://ppa.launchpad.net/bitcoin/bitcoin/ubuntu xenial main" > /etc/apt/sources.list.d/bitcoin.list && \
@@ -24,13 +20,14 @@ WORKDIR /home/btcd
 
 # Copy & edit default configuration
 COPY bitcoin.conf /home/btcd/.bitcoin/bitcoin.conf
-### --- Dirty workaround for: https://github.com/moby/moby/issues/6119
+COPY bootstrap.sh /home/btcd/bootstrap.sh
+
+# Adjust permissions (https://github.com/moby/moby/issues/6119)
 USER root
-RUN chown -R btcd:btcd /home/btcd/.bitcoin
+RUN chown -R btcd:btcd /home/btcd/.bitcoin && \
+    chown btcd:btcd /home/btcd/bootstrap.sh && \
+    chmod a+x /home/btcd/bootstrap.sh
 USER btcd
-### --- Should be solved by: https://github.com/moby/moby/pull/34263
-RUN sed -i "s/RPC_USER_CHANGEME/$RPC_USER/" /home/btcd/.bitcoin/bitcoin.conf && \
-    sed -i "s/RPC_PASSWORD_CHANGEME/$RPC_PASSWORD/" /home/btcd/.bitcoin/bitcoin.conf
 
 # Export blockchain data and config to volume
 VOLUME ["/home/btcd/.bitcoin"]
@@ -39,4 +36,4 @@ VOLUME ["/home/btcd/.bitcoin"]
 EXPOSE 8333 8332 18333 18332
 
 # Start node daemon
-CMD ["bitcoind"]
+CMD ["/bin/bash", "/home/btcd/bootstrap.sh"]
